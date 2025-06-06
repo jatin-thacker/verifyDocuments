@@ -2,7 +2,7 @@ import streamlit as st
 import os
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
-from verify_and_route import extract_id_data  # or wherever your function is
+from analyze_id import extract_id_data  # or wherever your function is
 
 load_dotenv()
 
