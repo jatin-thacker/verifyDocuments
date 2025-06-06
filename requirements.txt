@@ -3,7 +3,7 @@ python-dotenv
 azure-core
 azure-common
 azure-storage-blob
-azure-ai-formrecognizer
+#azure-ai-formrecognizer
 azure-ai-documentintelligence>=1.0.0b1
 requests
 pandas
