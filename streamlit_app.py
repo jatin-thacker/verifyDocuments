@@ -8,6 +8,7 @@ import uuid
 
 load_dotenv()
 
+
 # Safe environment variable fetch
 def get_env_var(key: str):
     value = os.getenv(key)
