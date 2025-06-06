@@ -3,6 +3,5 @@ python-dotenv
 azure-core
 azure-common
 azure-storage-blob
-#azure-ai-formrecognizer
-azure-ai-documentintelligence>=1.0.0b1
+azure-ai-formrecognizer==3.3.3
 requests
