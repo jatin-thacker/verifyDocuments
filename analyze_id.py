@@ -66,7 +66,7 @@ def extract_id_data(sas_url: str):
         )
         result = poller.result()
         
-        print(f"DEBUG: AnalyzeResult object received: {result}")
+        print(f"DEBUG: AnalyzeResult object receivedsss: {result}")
 
         if not result or not result.documents:
             print("DEBUG: No documents or analysis result found.")
