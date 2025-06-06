@@ -16,6 +16,23 @@ sas_token = os.getenv("SAS_TOKEN")
 blob_service_client = BlobServiceClient.from_connection_string(conn_str)
 container_client = blob_service_client.get_container_client(container_name)
 
+import os
+import streamlit as st
+
+required_envs = [
+    "AZURE_FORM_RECOGNIZER_ENDPOINT",
+    "AZURE_FORM_RECOGNIZER_KEY",
+    "AZURE_STORAGE_CONNECTION_STRING",
+    "AZURE_BLOB_CONTAINER",
+    "AZURE_BLOB_BASE_URL",
+    "SAS_TOKEN"
+]
+
+missing = [var for var in required_envs if not os.getenv(var)]
+if missing:
+    st.error(f"Missing required environment variables: {', '.join(missing)}")
+    st.stop()
+    
 st.title("🪪 Smart ID Verification Kiosk")
 
 uploaded_file = st.file_uploader("📤 Upload your ID image", type=["jpg", "jpeg", "png"])
