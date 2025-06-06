@@ -1,65 +1,37 @@
 import streamlit as st
 import os
-from azure.storage.blob import BlobServiceClient, ContentSettings
+from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
-from analyze_id import extract_id_data
-from verify_and_route import verify_data
-import uuid
+from verify_and_route import extract_id_data  # <- or wherever your function is
 
 load_dotenv()
 
+container_name = os.getenv("AZURE_BLOB_CONTAINER")
+conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+sas_token = os.getenv("SAS_TOKEN")
 
-# Safe environment variable fetch
-def get_env_var(key: str):
-    value = os.getenv(key)
-    if value is None:
-        st.error(f"❌ Environment variable '{key}' is not set.")
-    return value or ""
+blob_service_client = BlobServiceClient.from_connection_string(conn_str)
+container_client = blob_service_client.get_container_client(container_name)
 
-AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-AZURE_BLOB_CONTAINER = os.getenv("AZURE_BLOB_CONTAINER")
+st.title("🪪 Smart ID Verification Kiosk")
 
-st.title("🆔 Smart ID Kiosk System")
+uploaded_file = st.file_uploader("Upload your ID image", type=["jpg", "jpeg", "png"])
 
-uploaded_file = st.file_uploader("📄 Upload your ID Document", type=["jpg", "png", "jpeg", "pdf"])
+if uploaded_file:
+    # Save uploaded file to Azure Blob Storage
+    blob_name = uploaded_file.name
+    blob_client = container_client.get_blob_client(blob=blob_name)
+    blob_client.upload_blob(uploaded_file, overwrite=True)
 
-if uploaded_file is not None:
-    st.info(f"Filename: {uploaded_file.name}")
-    if st.button("📤 Upload and Analyze"):
-        try:
-            blob_service_client = BlobServiceClient.from_connection_string(AZURE_STORAGE_CONNECTION_STRING)
-            blob_client = blob_service_client.get_blob_client(
-                container=AZURE_BLOB_CONTAINER,
-                blob=f"{uuid.uuid4()}_{uploaded_file.name}"
-            )
+    # Build the full SAS URL for the uploaded blob
+    blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{container_name}/{blob_name}{sas_token}"
 
-            # Upload the file
-            blob_client.upload_blob(
-                uploaded_file,
-                overwrite=True,
-                content_settings=ContentSettings(content_type=uploaded_file.type)
-            )
+    st.success("✅ File uploaded successfully.")
+    st.write("🔍 Extracting data...")
 
-            # Generate SAS URL for Azure Document Intelligence
-            sas_url = blob_client.url + os.getenv("SAS_TOKEN")  # from .env
+    result = extract_id_data(blob_url)
 
-            st.success("✅ File uploaded successfully.")
-            #st.write("🔗 SAS URL:", sas_url)
-            st.write("🔗 SAS URL:", r"C:\Users\jatin\Downloads\smart-id-kiosk\smart-id-kiosk\test1.jpg")
-            with st.spinner("Analyzing document..."):
-                data = extract_id_data(sas_url)
-
-            if not data:
-                st.error("❌ Failed to extract data.")
-            else:
-                st.success("✅ Data extracted successfully:")
-                st.json(data)
-
-                verified, msg = verify_data(data)
-                if verified:
-                    st.success("✅ Verification Passed. Profile created.")
-                else:
-                    st.warning("⚠️ Verification Failed. Routed to underwriter.")
-
-        except Exception as e:
-            st.error(f"Upload failed: {e}")
+    if "error" in result:
+        st.error(f"❌ {result['error']}")
+    else:
+        st.json(result)
