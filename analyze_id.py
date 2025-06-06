@@ -14,6 +14,7 @@ def extract_id_data(sas_url):
     document_analysis_client = DocumentAnalysisClient(
         endpoint=endpoint, credential=AzureKeyCredential(key)
     )
+	
     poller = client.begin_analyze_document_from_url(
 	    model_id="prebuilt-idDocument",
 	    document_url=sas_url 
