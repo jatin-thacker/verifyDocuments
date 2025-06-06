@@ -1,7 +1,7 @@
 streamlit
-azure-storage-blob
-azure-ai-formrecognizer
-azure-ai-documentintelligence
-azure-ai-documentintelligence
 python-dotenv
 azure-core
+azure-common
+azure-storage-blob
+azure-ai-formrecognizer
+requests
