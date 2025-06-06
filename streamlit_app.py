@@ -48,10 +48,10 @@ if uploaded_file:
         if "error" in result:
             st.error(f"❌ Azure Form Recognizer Error: {result['error']}")
         else:
-            st.success("✅ ID Verified Successfully!")
+            st.success("✅ ID Verified Successfully!!!")
             st.json(result)
 
     except Exception as e:
         st.error(f"❌ Upload failed: {e}")
         if not blob_url:
-            st.warning("ℹ️ Blob URL was never created. Upload may have failed.")
+            st.warning("ℹ️ Blob URL was never created. Upload may have failed...")
