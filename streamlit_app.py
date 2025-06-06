@@ -1,5 +1,6 @@
 import streamlit as st
 import os
+import time
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 from analyze_id import extract_id_data  # Make sure this function takes a SAS URL
@@ -24,20 +25,28 @@ if uploaded_file:
     try:
         # Define blob name and upload to Azure
         blob_name = uploaded_file.name
+        st.write(f"📎 File name: `{blob_name}`")
+
         blob_client = container_client.get_blob_client(blob=blob_name)
         blob_client.upload_blob(uploaded_file, overwrite=True)
+        st.success("✅ File uploaded to Azure Blob Storage.")
+        st.code(f"📦 Container: {container_name}", language="text")
+        st.code(f"🔑 SAS Token: {sas_token}", language="text")
+
+        # Give Azure some time to register the new blob (Azure can be slow to propagate)
+        st.info("⏳ Waiting for blob availability...")
+        time.sleep(3)  # 3 seconds delay
 
         # Build SAS URL
         blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{container_name}/{blob_name}{sas_token}"
+        st.code(f"🔗 SAS URL: {blob_url}", language="text")
 
-        st.success("✅ File uploaded successfully.")
-        st.code(blob_url, language="text")
+        st.write("🔍 Extracting data using Azure Document Intelligence...")
 
-        st.write("🔍 Extracting data...")
         result = extract_id_data(blob_url)  # 👈 use the real uploaded file's URL
 
         if "error" in result:
-            st.error(f"❌ {result['error']}")
+            st.error(f"❌ Azure Form Recognizer Error: {result['error']}")
         else:
             st.success("✅ ID Verified Successfully!")
             st.json(result)
