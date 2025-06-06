@@ -49,7 +49,7 @@ def extract_id_data(sas_url: str):
             doc = result.documents[0]
 
             print(f"DEBUG: Found document type: {doc.doc_type}")
-            st.success(f"Document analysis complete. Type: {doc.doc_type}")
+            #st.success(f"Document analysis complete. Type: {doc.doc_type}")
 
             # Access fields using dot notation and .get() for safety
             fields = doc.fields
