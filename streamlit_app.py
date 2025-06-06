@@ -25,10 +25,12 @@ if uploaded_file:
         blob_name = uploaded_file.name
         blob_client = container_client.get_blob_client(blob=blob_name)
         blob_client.upload_blob(uploaded_file, overwrite=True)
-
+        st.code(blob_name, language="text")
+        st.code(blob_url, language="text")
         # Construct full SAS URL to access the blob
         blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{container_name}/{blob_name}{sas_token}"
 
+        st.code(blob_url, language="text")
         st.success("✅ File uploaded successfully.")
         st.write("🔍 Extracting data...")
 
