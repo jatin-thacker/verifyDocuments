@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 def extract_id_data(sas_url):
+	
     endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
     key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
 
