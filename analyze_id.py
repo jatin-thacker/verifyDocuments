@@ -5,26 +5,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def extract_id_data(sas_url: str) -> dict:
-    from azure.ai.formrecognizer import DocumentAnalysisClient
-    from azure.core.credentials import AzureKeyCredential
-    import os
-
-    endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
-    key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
-
-    client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(key))
-
+def extract_id_data(sas_url: str):
     try:
-        poller = client.begin_analyze_document_from_url("prebuilt-idDocument", document_url=sas_url)
+        poller = client.begin_recognize_id_documents_from_url(sas_url)
         result = poller.result()
 
-        extracted_data = {}
-        for doc in result.documents:
-            for name, field in doc.fields.items():
-                extracted_data[name] = field.value
+        if not result:
+            return {"error": "No results returned from Azure."}
 
-        return extracted_data
+        # Just return the raw fields to see what we get
+        fields = result[0].fields if result else {}
+
+        # Convert to readable dictionary
+        extracted = {}
+        for key, field in fields.items():
+            extracted[key] = field.value if field else None
+
+        return extracted or {"error": "No fields extracted."}
+
     except Exception as e:
         return {"error": str(e)}
 
