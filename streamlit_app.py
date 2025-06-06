@@ -38,7 +38,7 @@ if uploaded_file:
         time.sleep(3)  # 3 seconds delay
 
         # Build SAS URL
-        blob_url = f"https://{blob_service_client.account_name}.blob.core.windows.net/{container_name}/{blob_name}{sas_token}"
+        blob_url = f"{os.getenv('AZURE_BLOB_BASE_URL')}/{blob_name}{sas_token}"
         st.code(f"🔗 SAS URL: {blob_url}", language="text")
 
         st.write("🔍 Extracting data using Azure Document Intelligence...")
