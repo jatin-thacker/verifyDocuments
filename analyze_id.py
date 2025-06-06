@@ -9,13 +9,14 @@ def extract_id_data(sas_url):
 	
     endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
     key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
+    sas_url = os.getenv("AZURE_SAS_UR")L
 
     document_analysis_client = DocumentAnalysisClient(
         endpoint=endpoint, credential=AzureKeyCredential(key)
     )
-
-    poller = document_analysis_client.begin_analyze_document_from_url(
-        "prebuilt-idDocument", sas_url
+    poller = client.begin_analyze_document_from_url(
+	    model_id="prebuilt-idDocument",
+	    document_url=sas_url 
     )
     result = poller.result()
 
