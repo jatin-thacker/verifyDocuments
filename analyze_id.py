@@ -1,6 +1,5 @@
 import os
-# from azure.ai.documentintelligence import DocumentAnalysisClient # REMOVED
-from azure.ai.formrecognizer import FormRecognizerClient # ADDED
+from azure.ai.formrecognizer import FormRecognizerClient # Using FormRecognizerClient
 from azure.core.credentials import AzureKeyCredential
 from dotenv import load_dotenv
 import requests # Still needed for downloading content
@@ -22,11 +21,7 @@ if not endpoint or not key:
     # st.stop()
     raise ValueError("Environment variables AZURE_FORM_RECOGNIZER_ENDPOINT and AZURE_FORM_RECOGNIZER_KEY must be set.")
 
-# client = DocumentAnalysisClient( # REMOVED
-#             endpoint=endpoint,
-#             credential=AzureKeyCredential(key)
-#         )
-client = FormRecognizerClient( # ADDED
+client = FormRecognizerClient( # Initializing FormRecognizerClient
             endpoint=endpoint,
             credential=AzureKeyCredential(key)
         )
@@ -64,34 +59,23 @@ def extract_id_data(sas_url: str):
         print(f"DEBUG: Determined Content-Type for analysis: {content_type}")
 
         # --- Call Form Recognizer Client with explicit content_type ---
-        # The method name changes from begin_analyze_document to begin_recognize_identity_documents
-        poller = client.begin_recognize_identity_documents( # CHANGED METHOD
-            document=image_data,
-            content_type=content_type # <<< PASS THE EXPLICIT CONTENT TYPE HERE
+        poller = client.begin_recognize_identity_documents(
+            identity_document=image_data, # CORRECTED ARGUMENT NAME
+            content_type=content_type 
         )
         result = poller.result()
         
         print(f"DEBUG: AnalyzeResult object receivedsss: {result}")
 
-        # The structure of the result object is slightly different for FormRecognizerClient
-        # It returns a list of IdentityDocument objects
-        if not result: # It might return an empty list if no docs found
+        if not result: 
             print("DEBUG: No identity documents found in the image or no results returned from Azure.")
             return {"error": "No ID documents found in the image or no results returned from Azure."}
 
-        # If we reach here, we have at least one identity document
-        # The FormRecognizerClient's begin_recognize_identity_documents returns a list of IdentityDocument
-        # We usually care about the first one.
         id_document = result[0] 
         
         print(f"DEBUG: Found identity document type: {id_document.doc_type}")
 
         # Accessing fields in IdentityDocument (attribute access vs. dict-like access for some fields)
-        # IdentityDocument fields are attributes directly (e.g., id_document.first_name)
-        # Their values usually have .value and .content attributes
-        
-        # Populate the 'extracted' dictionary with fields you care about
-        # Note: Field names might be slightly different or access patterns (e.g., .value)
         extracted = {
             "FirstName": id_document.first_name.content if id_document.first_name else None,
             "LastName": id_document.last_name.content if id_document.last_name else None,
@@ -99,14 +83,13 @@ def extract_id_data(sas_url: str):
             "DateOfBirth": id_document.date_of_birth.content if id_document.date_of_birth else None,
             "Address": id_document.address.content if id_document.address else None,
             "City": id_document.city.content if id_document.city else None,
-            "Province": id_document.state.content if id_document.state else None, # Form Recognizer uses 'state'
+            "Province": id_document.state.content if id_document.state else None, 
             "PostalCode": id_document.postal_code.content if id_document.postal_code else None,
-            "Country": id_document.country_region.content if id_document.country_region else None, # Form Recognizer uses 'country_region'
+            "Country": id_document.country_region.content if id_document.country_region else None, 
             "Sex": id_document.sex.content if id_document.sex else None,
             "ExpirationDate": id_document.date_of_expiration.content if id_document.date_of_expiration else None, 
             "IssueDate": id_document.date_of_issue.content if id_document.date_of_issue else None, 
-            "FullName": id_document.full_name.content if id_document.full_name else None, # Form Recognizer has full_name directly
-            # Add other relevant fields if needed, check IdentityDocument properties
+            "FullName": id_document.full_name.content if id_document.full_name else None, 
         }
         
         # --- Print the extracted data to the console for debugging ---
@@ -117,7 +100,6 @@ def extract_id_data(sas_url: str):
         # --- Also print all raw fields for detailed debugging (adjusted for FormRecognizerClient) ---
         print("\n--- All Raw IdentityDocument Attributes (for Debugging) ---")
         all_raw_fields_dict = {}
-        # Iterate over common attributes of IdentityDocument
         for attr_name in ['document_number', 'date_of_birth', 'date_of_expiration', 'date_of_issue',
                           'first_name', 'last_name', 'full_name', 'address', 'city', 'state',
                           'postal_code', 'country_region', 'sex', 'first_name_native',
@@ -126,17 +108,16 @@ def extract_id_data(sas_url: str):
             
             field_value_obj = getattr(id_document, attr_name, None)
             if field_value_obj:
-                # Access .content or .value depending on the attribute type
                 content_or_value = field_value_obj.content if hasattr(field_value_obj, 'content') else field_value_obj.value
                 
                 if isinstance(content_or_value, (type(None))):
                     display_value = None
-                elif hasattr(content_or_value, 'isoformat'): # for datetime objects
+                elif hasattr(content_or_value, 'isoformat'):
                     display_value = content_or_value.isoformat()
                 else:
                     display_value = str(content_or_value)
 
-                confidence = field_value_obj.confidence if hasattr(field_value_obj, 'confidence') else 'N/A' # Some might not have confidence
+                confidence = field_value_obj.confidence if hasattr(field_value_obj, 'confidence') else 'N/A'
                 all_raw_fields_dict[attr_name] = {
                     "content_or_value": display_value,
                     "confidence": f"{confidence:.2f}" if isinstance(confidence, float) else confidence
@@ -150,10 +131,10 @@ def extract_id_data(sas_url: str):
         print(f"ERROR: HTTP Error during image download: {err}")
         return {"error": f"Failed to download image from SAS URL: {err}"}
     except Exception as e:
-        print(f"ERROR: Azure AI Form Recognizer Error: {e}") # Updated error message
+        print(f"ERROR: Azure AI Form Recognizer Error: {e}") 
         return {"error": str(e)}
 
-        
+
 # import os
 # from azure.ai.formrecognizer import DocumentAnalysisClient
 # from azure.core.credentials import AzureKeyCredential
