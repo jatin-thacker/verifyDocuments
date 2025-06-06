@@ -2,6 +2,7 @@ import os
 from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from dotenv import load_dotenv
+import requests
 
 load_dotenv()
 # Setup Form Recognizer Client
