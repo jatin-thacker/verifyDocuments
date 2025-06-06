@@ -9,7 +9,7 @@ def extract_id_data(sas_url):
 	
     endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
     key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
-    sas_url = os.getenv("AZURE_SAS_UR")L
+    sas_url = os.getenv("AZURE_SAS_URL")
 
     document_analysis_client = DocumentAnalysisClient(
         endpoint=endpoint, credential=AzureKeyCredential(key)
