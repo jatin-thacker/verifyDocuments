@@ -8,6 +8,13 @@ import uuid
 
 load_dotenv()
 
+# Safe environment variable fetch
+def get_env_var(key: str):
+    value = os.getenv(key)
+    if value is None:
+        st.error(f"❌ Environment variable '{key}' is not set.")
+    return value or ""
+
 AZURE_STORAGE_CONNECTION_STRING = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 AZURE_BLOB_CONTAINER = os.getenv("AZURE_BLOB_CONTAINER")
 
