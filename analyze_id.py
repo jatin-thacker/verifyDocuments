@@ -15,11 +15,15 @@ def extract_id_data(sas_url: str):
 
         # Just return the raw fields to see what we get
         fields = result[0].fields if result else {}
+        st.write("Raw fields:", fields)
+        fields = result.documents[0].fields
+        extracted = {
+        "FirstName": fields.get("FirstName").value if fields.get("FirstName") else None,
+        "LastName": fields.get("LastName").value if fields.get("LastName") else None,
+        "DateOfBirth": fields.get("DateOfBirth").value if fields.get("DateOfBirth") else None,
+        "DocumentNumber": fields.get("DocumentNumber").value if fields.get("DocumentNumber") else None,
+        }
 
-        # Convert to readable dictionary
-        extracted = {}
-        for key, field in fields.items():
-            extracted[key] = field.value if field else None
 
         return extracted or {"error": "No fields extracted."}
 
