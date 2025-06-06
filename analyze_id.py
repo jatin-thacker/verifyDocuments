@@ -1,5 +1,6 @@
 import os
-from azure.ai.documentintelligence import DocumentAnalysisClient
+# from azure.ai.documentintelligence import DocumentAnalysisClient # REMOVED
+from azure.ai.formrecognizer import FormRecognizerClient # ADDED
 from azure.core.credentials import AzureKeyCredential
 from dotenv import load_dotenv
 import requests # Still needed for downloading content
@@ -21,7 +22,11 @@ if not endpoint or not key:
     # st.stop()
     raise ValueError("Environment variables AZURE_FORM_RECOGNIZER_ENDPOINT and AZURE_FORM_RECOGNIZER_KEY must be set.")
 
-client = DocumentAnalysisClient(
+# client = DocumentAnalysisClient( # REMOVED
+#             endpoint=endpoint,
+#             credential=AzureKeyCredential(key)
+#         )
+client = FormRecognizerClient( # ADDED
             endpoint=endpoint,
             credential=AzureKeyCredential(key)
         )
@@ -30,7 +35,7 @@ client = DocumentAnalysisClient(
 
 def extract_id_data(sas_url: str):
     print(f"DEBUG: extract_id_data called with SAS URL: {sas_url}")
-    print("DEBUG: Starting document analysis...")
+    print("DEBUG: Starting document analysis with FormRecognizerClient...") # Updated print for clarity
     
     extracted = {} # Initialize dictionary for returned data
 
@@ -58,9 +63,9 @@ def extract_id_data(sas_url: str):
 
         print(f"DEBUG: Determined Content-Type for analysis: {content_type}")
 
-        # --- Call Document Intelligence with explicit content_type ---
-        poller = client.begin_analyze_document(
-            "prebuilt-idDocument",
+        # --- Call Form Recognizer Client with explicit content_type ---
+        # The method name changes from begin_analyze_document to begin_recognize_identity_documents
+        poller = client.begin_recognize_identity_documents( # CHANGED METHOD
             document=image_data,
             content_type=content_type # <<< PASS THE EXPLICIT CONTENT TYPE HERE
         )
@@ -68,33 +73,40 @@ def extract_id_data(sas_url: str):
         
         print(f"DEBUG: AnalyzeResult object receivedsss: {result}")
 
-        if not result or not result.documents:
-            print("DEBUG: No documents or analysis result found.")
+        # The structure of the result object is slightly different for FormRecognizerClient
+        # It returns a list of IdentityDocument objects
+        if not result: # It might return an empty list if no docs found
+            print("DEBUG: No identity documents found in the image or no results returned from Azure.")
             return {"error": "No ID documents found in the image or no results returned from Azure."}
 
-        # If we reach here, we have at least one document
-        doc = result.documents[0]
+        # If we reach here, we have at least one identity document
+        # The FormRecognizerClient's begin_recognize_identity_documents returns a list of IdentityDocument
+        # We usually care about the first one.
+        id_document = result[0] 
         
-        print(f"DEBUG: Found document type: {doc.doc_type}")
+        print(f"DEBUG: Found identity document type: {id_document.doc_type}")
 
-        fields = doc.fields
-
+        # Accessing fields in IdentityDocument (attribute access vs. dict-like access for some fields)
+        # IdentityDocument fields are attributes directly (e.g., id_document.first_name)
+        # Their values usually have .value and .content attributes
+        
         # Populate the 'extracted' dictionary with fields you care about
+        # Note: Field names might be slightly different or access patterns (e.g., .value)
         extracted = {
-            "FirstName": fields.get("FirstName").content if fields.get("FirstName") else None,
-            "LastName": fields.get("LastName").content if fields.get("LastName") else None,
-            "FullName": fields.get("FullName").content if fields.get("FullName") else None,
-            "DateOfBirth": fields.get("DateOfBirth").content if fields.get("DateOfBirth") else None,
-            "DocumentNumber": fields.get("DocumentNumber").content if fields.get("DocumentNumber") else None,
-            "Address": fields.get("Address").content if fields.get("Address") else None,
-            "City": fields.get("City").content if fields.get("City") else None,
-            "Province": fields.get("Province").content if fields.get("Province") else None,
-            "PostalCode": fields.get("PostalCode").content if fields.get("PostalCode") else None,
-            "Country": fields.get("Country").content if fields.get("Country") else None,
-            "Sex": fields.get("Sex").content if fields.get("Sex") else None,
-            "ExpirationDate": fields.get("ExpirationDate").content if fields.get("ExpirationDate") else None, # Use .content
-            "IssueDate": fields.get("DateOfIssue").content if fields.get("DateOfIssue") else None, # Use .content
-            # Add other relevant fields for Canadian IDs
+            "FirstName": id_document.first_name.content if id_document.first_name else None,
+            "LastName": id_document.last_name.content if id_document.last_name else None,
+            "DocumentNumber": id_document.document_number.content if id_document.document_number else None,
+            "DateOfBirth": id_document.date_of_birth.content if id_document.date_of_birth else None,
+            "Address": id_document.address.content if id_document.address else None,
+            "City": id_document.city.content if id_document.city else None,
+            "Province": id_document.state.content if id_document.state else None, # Form Recognizer uses 'state'
+            "PostalCode": id_document.postal_code.content if id_document.postal_code else None,
+            "Country": id_document.country_region.content if id_document.country_region else None, # Form Recognizer uses 'country_region'
+            "Sex": id_document.sex.content if id_document.sex else None,
+            "ExpirationDate": id_document.date_of_expiration.content if id_document.date_of_expiration else None, 
+            "IssueDate": id_document.date_of_issue.content if id_document.date_of_issue else None, 
+            "FullName": id_document.full_name.content if id_document.full_name else None, # Form Recognizer has full_name directly
+            # Add other relevant fields if needed, check IdentityDocument properties
         }
         
         # --- Print the extracted data to the console for debugging ---
@@ -102,25 +114,33 @@ def extract_id_data(sas_url: str):
         print(extracted)
         print("----------------------------------------")
         
-        # --- Also print all raw fields for detailed debugging ---
-        print("\n--- All Raw Fields Extracted (for Debugging) ---")
+        # --- Also print all raw fields for detailed debugging (adjusted for FormRecognizerClient) ---
+        print("\n--- All Raw IdentityDocument Attributes (for Debugging) ---")
         all_raw_fields_dict = {}
-        for field_name, field_value in fields.items():
-            # Try to get content, fallback to value if content is None (e.g., for dates which might have .value)
-            content_or_value = field_value.content if field_value.content is not None else field_value.value
-            # For date objects, .value might be a datetime object; convert to string for print
-            if isinstance(content_or_value, (type(None))):
-                display_value = None
-            elif hasattr(content_or_value, 'isoformat'): # for datetime objects
-                display_value = content_or_value.isoformat()
-            else:
-                display_value = str(content_or_value)
+        # Iterate over common attributes of IdentityDocument
+        for attr_name in ['document_number', 'date_of_birth', 'date_of_expiration', 'date_of_issue',
+                          'first_name', 'last_name', 'full_name', 'address', 'city', 'state',
+                          'postal_code', 'country_region', 'sex', 'first_name_native',
+                          'last_name_native', 'document_subtype', 'issuing_authority', 'nationality',
+                          'place_of_birth', 'region', 'visa_number', 'machine_readable_zone']:
+            
+            field_value_obj = getattr(id_document, attr_name, None)
+            if field_value_obj:
+                # Access .content or .value depending on the attribute type
+                content_or_value = field_value_obj.content if hasattr(field_value_obj, 'content') else field_value_obj.value
+                
+                if isinstance(content_or_value, (type(None))):
+                    display_value = None
+                elif hasattr(content_or_value, 'isoformat'): # for datetime objects
+                    display_value = content_or_value.isoformat()
+                else:
+                    display_value = str(content_or_value)
 
-            confidence = field_value.confidence
-            all_raw_fields_dict[field_name] = {
-                "content_or_value": display_value,
-                "confidence": f"{confidence:.2f}"
-            }
+                confidence = field_value_obj.confidence if hasattr(field_value_obj, 'confidence') else 'N/A' # Some might not have confidence
+                all_raw_fields_dict[attr_name] = {
+                    "content_or_value": display_value,
+                    "confidence": f"{confidence:.2f}" if isinstance(confidence, float) else confidence
+                }
         print(all_raw_fields_dict)
         print("--------------------------------------------------")
 
@@ -130,9 +150,10 @@ def extract_id_data(sas_url: str):
         print(f"ERROR: HTTP Error during image download: {err}")
         return {"error": f"Failed to download image from SAS URL: {err}"}
     except Exception as e:
-        print(f"ERROR: Azure AI Document Intelligence Error: {e}")
+        print(f"ERROR: Azure AI Form Recognizer Error: {e}") # Updated error message
         return {"error": str(e)}
 
+        
 # import os
 # from azure.ai.formrecognizer import DocumentAnalysisClient
 # from azure.core.credentials import AzureKeyCredential
