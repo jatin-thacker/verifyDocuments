@@ -50,3 +50,4 @@ azure-ai-formrecognizer==3.3.2
 azure-core==1.29.5
 azure-identity
 pillow
+pyodbc
