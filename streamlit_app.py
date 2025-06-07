@@ -38,6 +38,9 @@ st.title("🪪 Smart ID Verification Kiosk")
 uploaded_file = st.file_uploader("📤 Upload your ID image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
+    # --- CRUCIAL DEBUG LINE: See what Streamlit detects as the file type ---
+    st.write(f"DEBUG: Streamlit detected file type: `{uploaded_file.type}`") 
+    # --- END DEBUG LINE ---
     blob_url = None  # Initialize to avoid undefined reference
     try:
         # Define blob name and upload to Azure
