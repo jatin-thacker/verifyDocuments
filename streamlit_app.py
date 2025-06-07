@@ -61,15 +61,16 @@ if uploaded_file:
 
         # Give Azure some time to register the new blob (Azure can be slow to propagate)
         st.info("⏳ Waiting for blob availability...")
-        time.sleep(3)  # 3 seconds delay
-
+        time.sleep(5)
         # Build SAS URL
         blob_url = f"{os.getenv('AZURE_BLOB_BASE_URL')}/{blob_name}{sas_token}"
         st.code(f"🔗 SAS URL: {blob_url}", language="text")
 
         st.write("🔍 Extracting data using Azure Document Intelligence...")
 
-        result = extract_id_data(blob_url)  # 👈 use the real uploaded file's URL
+        image_bytes = uploaded_file.getvalue()
+        result = extract_id_data(image_bytes=image_bytes, content_type=uploaded_file.type)
+        # 👈 use the real uploaded file's URL
 
         if "error" in result:
             st.error(f"❌ Azure Form Recognizer Error: {result['error']}")

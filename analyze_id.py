@@ -21,7 +21,7 @@ client = FormRecognizerClient(
         )
 
 # MODIFIED: No longer need content_type as a parameter, we will hardcode it.
-def extract_id_data(sas_url: str): # REMOVED content_type parameter
+def extract_id_data(image_bytes: bytes, content_type: str):
     print(f"DEBUG: extract_id_data called with SAS URL: {sas_url}")
     print("DEBUG: Starting document analysis with FormRecognizerClient...")
     
@@ -42,11 +42,13 @@ def extract_id_data(sas_url: str): # REMOVED content_type parameter
             
         st.write("🔍 DEBUG: Fetching image from SAS URL")
         st.write(f"🧾 Content-Type from Azure Blob: {content_type_from_blob}")
+        st.write(f"🧾 Image size in bytes: {len(image_bytes)}")
 
         poller = client.begin_recognize_identity_documents(
-            identity_document=image_data,
-            content_type=content_type_from_blob
+            identity_document=image_bytes,
+            content_type=content_type
         )
+
 
         result = poller.result()
         
