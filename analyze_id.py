@@ -47,11 +47,11 @@ def extract_id_data(image_bytes: bytes, debug=False):
         extracted = {
             "FirstName": fields.get("FirstName").content if fields.get("FirstName") else None,
             "LastName": fields.get("LastName").content if fields.get("LastName") else None,
-            "FullName": fields.get("FullName").content if fields.get("FullName") else None,
+            #"FullName": fields.get("FullName").content if fields.get("FullName") else None,
             "DateOfBirth": fields.get("DateOfBirth").content if fields.get("DateOfBirth") else None,
             "DocumentNumber": fields.get("DocumentNumber").content if fields.get("DocumentNumber") else None,
             "Address": fields.get("Address").content if fields.get("Address") else None,
-            "CountryRegion": fields.get("CountryRegion").content if fields.get("CountryRegion") else None,
+            "CountryRegion": fields.get("CountryRegion").content if fields.get("CountryRegion") else "USA",
             "DateOfExpiration": fields.get("DateOfExpiration").content if fields.get("DateOfExpiration") else None,
         }
 
