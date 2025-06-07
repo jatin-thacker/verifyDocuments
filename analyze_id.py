@@ -1,10 +1,7 @@
-import os
 from azure.ai.formrecognizer import FormRecognizerClient
 from azure.core.credentials import AzureKeyCredential
+import os
 from dotenv import load_dotenv
-import requests 
-
-import streamlit as st # Keep this if analyze_id.py needs to be able to be run standalone for testing
 
 load_dotenv()
 
@@ -12,111 +9,73 @@ endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
 key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
 
 if not endpoint or not key:
-    print("ERROR: Azure Document Intelligence endpoint or key not found in environment variables.")
-    raise ValueError("Environment variables AZURE_FORM_RECOGNIZER_ENDPOINT and AZURE_FORM_RECOGNIZER_KEY must be set.")
+    raise ValueError("AZURE_FORM_RECOGNIZER_ENDPOINT or AZURE_FORM_RECOGNIZER_KEY not set in environment.")
 
 client = FormRecognizerClient(
-            endpoint=endpoint,
-            credential=AzureKeyCredential(key)
-        )
+    endpoint=endpoint,
+    credential=AzureKeyCredential(key)
+)
 
-# MODIFIED: No longer need content_type as a parameter, we will hardcode it.
 def extract_id_data(image_bytes: bytes, content_type: str):
-    print(f"DEBUG: extract_id_data called with SAS URL: {sas_url}")
-    print("DEBUG: Starting document analysis with FormRecognizerClient...")
+    print("DEBUG: extract_id_data called with image_bytes and content_type:", content_type)
     
-    extracted = {}
-
     try:
-        response = requests.get(sas_url)
-        response.raise_for_status() 
-        
-        image_data = response.content 
-        
-        # --- HARDCODING THE CONTENT_TYPE HERE ---
-        # Since Streamlit confirms it's JPEG, we'll tell Azure it's JPEG.
-        # This bypasses any issues with the passed parameter or its interpretation.
-        head_resp = requests.head(sas_url)
-        content_type_from_blob = head_resp.headers.get('Content-Type', 'image/jpeg')  # fallback to jpeg
-
-            
-        st.write("🔍 DEBUG: Fetching image from SAS URL")
-        st.write(f"🧾 Content-Type from Azure Blob: {content_type_from_blob}")
-        st.write(f"🧾 Image size in bytes: {len(image_bytes)}")
-
+        print("DEBUG: Starting Azure Document Intelligence analysis...")
         poller = client.begin_recognize_identity_documents(
             identity_document=image_bytes,
             content_type=content_type
         )
-
-
         result = poller.result()
-        
-        print(f"DEBUG: AnalyzeResult object receivedsss: {result}")
 
-        if not result: 
-            print("DEBUG: No identity documents found in the image or no results returned from Azure.")
-            return {"error": "No ID documents found in the image or no results returned from Azure."}
+        if not result or len(result) == 0:
+            print("DEBUG: No documents returned by recognizer.")
+            return {"error": "No documents returned by Azure Form Recognizer."}
 
-        id_document = result[0] 
-        
-        print(f"DEBUG: Found identity document type: {id_document.doc_type}")
+        id_document = result[0]
+        print(f"DEBUG: Document Type Detected: {id_document.doc_type}")
 
+        # Extract core fields
         extracted = {
             "FirstName": id_document.first_name.content if id_document.first_name else None,
             "LastName": id_document.last_name.content if id_document.last_name else None,
+            "FullName": id_document.full_name.content if id_document.full_name else None,
             "DocumentNumber": id_document.document_number.content if id_document.document_number else None,
             "DateOfBirth": id_document.date_of_birth.content if id_document.date_of_birth else None,
+            "IssueDate": id_document.date_of_issue.content if id_document.date_of_issue else None,
+            "ExpirationDate": id_document.date_of_expiration.content if id_document.date_of_expiration else None,
+            "Sex": id_document.sex.content if id_document.sex else None,
             "Address": id_document.address.content if id_document.address else None,
             "City": id_document.city.content if id_document.city else None,
-            "Province": id_document.state.content if id_document.state else None, 
+            "Province": id_document.state.content if id_document.state else None,
             "PostalCode": id_document.postal_code.content if id_document.postal_code else None,
-            "Country": id_document.country_region.content if id_document.country_region else None, 
-            "Sex": id_document.sex.content if id_document.sex else None,
-            "ExpirationDate": id_document.date_of_expiration.content if id_document.date_of_expiration else None, 
-            "IssueDate": id_document.date_of_issue.content if id_document.date_of_issue else None, 
-            "FullName": id_document.full_name.content if id_document.full_name else None, 
+            "Country": id_document.country_region.content if id_document.country_region else None,
         }
-        
-        print("\n--- Extracted Data (Key-Value Pairs) ---")
-        print(extracted)
-        print("----------------------------------------")
-        
-        print("\n--- All Raw IdentityDocument Attributes (for Debugging) ---")
-        all_raw_fields_dict = {}
-        for attr_name in ['document_number', 'date_of_birth', 'date_of_expiration', 'date_of_issue',
-                          'first_name', 'last_name', 'full_name', 'address', 'city', 'state',
-                          'postal_code', 'country_region', 'sex', 'first_name_native',
-                          'last_name_native', 'document_subtype', 'issuing_authority', 'nationality',
-                          'place_of_birth', 'region', 'visa_number', 'machine_readable_zone']:
-            
-            field_value_obj = getattr(id_document, attr_name, None)
-            if field_value_obj:
-                content_or_value = field_value_obj.content if hasattr(field_value_obj, 'content') else field_value_obj.value
-                
-                if isinstance(content_or_value, (type(None))):
-                    display_value = None
-                elif hasattr(content_or_value, 'isoformat'):
-                    display_value = content_or_value.isoformat()
-                else:
-                    display_value = str(content_or_value)
 
-                confidence = field_value_obj.confidence if hasattr(field_value_obj, 'confidence') else 'N/A'
-                all_raw_fields_dict[attr_name] = {
-                    "content_or_value": display_value,
-                    "confidence": f"{confidence:.2f}" if isinstance(confidence, float) else confidence
+        print("DEBUG: Extracted Key Fields:")
+        for k, v in extracted.items():
+            print(f"  {k}: {v}")
+
+        # Optional: print all fields with confidence for debugging
+        print("\nDEBUG: Raw Fields with Confidence:")
+        raw_fields = {}
+        for field_name in [
+            "first_name", "last_name", "full_name", "document_number", "date_of_birth", "date_of_issue",
+            "date_of_expiration", "sex", "address", "city", "state", "postal_code", "country_region"
+        ]:
+            field = getattr(id_document, field_name, None)
+            if field:
+                raw_fields[field_name] = {
+                    "value": field.content if hasattr(field, "content") else str(field.value),
+                    "confidence": round(field.confidence, 2) if hasattr(field, "confidence") else "N/A"
                 }
-        print(all_raw_fields_dict)
-        print("--------------------------------------------------")
+        print(raw_fields)
 
         return extracted
 
-    except requests.exceptions.HTTPError as err:
-        print(f"ERROR: HTTP Error during image download: {err}")
-        return {"error": f"Failed to download image from SAS URL: {err}"}
     except Exception as e:
-        print(f"ERROR: Azure AI Form Recognizer Error: {e}") 
+        print(f"ERROR: Exception during Form Recognizer call: {e}")
         return {"error": str(e)}
+
 
 # import os
 # from azure.ai.formrecognizer import DocumentAnalysisClient
