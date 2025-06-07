@@ -4,6 +4,7 @@ import time
 from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 from analyze_id import extract_id_data  # Make sure this function takes a SAS URL
+from db_utils import insert_customer_data
 
 load_dotenv()
 
@@ -66,6 +67,8 @@ if uploaded_file:
             st.success("✅ ID Verified Successfully!")
             st.subheader("📋 Extracted Data")
             st.json(result["extracted"])
+            customer_id = insert_customer_data(result["extracted"])
+            st.success(f"🎉 Onboarding Complete! Your Customer ID is: `{customer_id}`")
 
             if debug_mode and result.get("raw_debug"):
                 st.subheader("🔧 Debug Info")

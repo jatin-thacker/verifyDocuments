@@ -51,7 +51,8 @@ def extract_id_data(image_bytes: bytes, debug=False):
             "DateOfBirth": fields.get("DateOfBirth").content if fields.get("DateOfBirth") else None,
             "DocumentNumber": fields.get("DocumentNumber").content if fields.get("DocumentNumber") else None,
             "Address": fields.get("Address").content if fields.get("Address") else None,
-            "CountryRegion": fields.get("CountryRegion").content if fields.get("CountryRegion") else "USA",
+            #"CountryRegion": fields.get("CountryRegion").content if fields.get("CountryRegion") else "USA",
+            "Country": id_document.country_region.content if id_document.country_region and id_document.country_region.content else "USA",
             "DateOfExpiration": fields.get("DateOfExpiration").content if fields.get("DateOfExpiration") else None,
         }
 
