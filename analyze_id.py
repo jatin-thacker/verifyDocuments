@@ -1,71 +1,51 @@
 import os
-from azure.ai.formrecognizer import FormRecognizerClient # Using FormRecognizerClient
+from azure.ai.formrecognizer import FormRecognizerClient
 from azure.core.credentials import AzureKeyCredential
 from dotenv import load_dotenv
-import requests # Still needed for downloading content
+import requests 
 
-# Ensure these imports are at the very top of your Streamlit app file if they are used there
-import streamlit as st
+# Keep this line if you plan to test analyze_id.py standalone, otherwise remove
+# import streamlit as st 
 
 load_dotenv()
 
-# --- Initialize client (outside the function, as you correctly have it) ---
-# This part should be at the top level of your Streamlit app script
 endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
 key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
 
 if not endpoint or not key:
     print("ERROR: Azure Document Intelligence endpoint or key not found in environment variables.")
-    # In a Streamlit app, you might also use st.error and st.stop() here
-    # st.error("Azure Document Intelligence endpoint or key not found in environment variables.")
-    # st.stop()
     raise ValueError("Environment variables AZURE_FORM_RECOGNIZER_ENDPOINT and AZURE_FORM_RECOGNIZER_KEY must be set.")
 
-client = FormRecognizerClient( # Initializing FormRecognizerClient
+client = FormRecognizerClient(
             endpoint=endpoint,
             credential=AzureKeyCredential(key)
         )
-# --- End client initialization ---
 
-
-def extract_id_data(sas_url: str):
-    print(f"DEBUG: extract_id_data called with SAS URL: {sas_url}")
-    print("DEBUG: Starting document analysis with FormRecognizerClient...") # Updated print for clarity
+# MODIFIED: content_type is directly passed and we will trust it completely
+def extract_id_data(sas_url: str, content_type: str): 
+    print(f"DEBUG: extract_id_data called with SAS URL: {sas_url}, PASSED Content-Type: {content_type}")
+    print("DEBUG: Starting document analysis with FormRecognizerClient...")
     
-    extracted = {} # Initialize dictionary for returned data
+    extracted = {}
 
     try:
-        # --- Download content with error checking and get headers ---
         response = requests.get(sas_url)
-        response.raise_for_status() # This will raise an HTTPError for bad responses (4xx or 5xx)
+        response.raise_for_status() 
         
-        image_data = response.content # Get the raw bytes of the image
-        content_type = response.headers.get("Content-Type") # Get the Content-Type from the HTTP response headers
+        image_data = response.content 
+        
+        # --- CRITICAL: We are now explicitly trusting the `content_type`
+        # --- that was passed directly from streamlit_app.py.
+        # --- All previous inference/fallback logic for content_type is REMOVED.
+        print(f"DEBUG: Using FINAL Content-Type for analysis: {content_type}") 
 
-        if not content_type:
-            # Fallback if Content-Type header is missing (shouldn't happen often for blobs)
-            print("WARNING: Content-Type header not found. Attempting to infer from URL.")
-            if sas_url.lower().endswith((".jpg", ".jpeg")):
-                content_type = "image/jpeg"
-            elif sas_url.lower().endswith(".png"):
-                content_type = "image/png"
-            elif sas_url.lower().endswith(".pdf"):
-                content_type = "application/pdf"
-            else:
-                # If still unknown, log an error and let the service try to guess (might fail)
-                print("ERROR: Could not reliably determine content type from URL. This might lead to issues.")
-                content_type = "application/octet-stream" # Generic binary type, might fail
-
-        print(f"DEBUG: Determined Content-Type for analysis: {content_type}")
-
-        # --- Call Form Recognizer Client with explicit content_type ---
         poller = client.begin_recognize_identity_documents(
-            identity_document=image_data, # CORRECTED ARGUMENT NAME
-            content_type=content_type 
+            identity_document=image_data, 
+            content_type=content_type # Directly use the passed content_type
         )
         result = poller.result()
         
-        print(f"DEBUG: AnalyzeResult object receivedsss: {result}")
+        print(f"DEBUG: AnalyzeResult object received: {result}")
 
         if not result: 
             print("DEBUG: No identity documents found in the image or no results returned from Azure.")
@@ -75,7 +55,6 @@ def extract_id_data(sas_url: str):
         
         print(f"DEBUG: Found identity document type: {id_document.doc_type}")
 
-        # Accessing fields in IdentityDocument (attribute access vs. dict-like access for some fields)
         extracted = {
             "FirstName": id_document.first_name.content if id_document.first_name else None,
             "LastName": id_document.last_name.content if id_document.last_name else None,
@@ -92,12 +71,10 @@ def extract_id_data(sas_url: str):
             "FullName": id_document.full_name.content if id_document.full_name else None, 
         }
         
-        # --- Print the extracted data to the console for debugging ---
         print("\n--- Extracted Data (Key-Value Pairs) ---")
         print(extracted)
         print("----------------------------------------")
         
-        # --- Also print all raw fields for detailed debugging (adjusted for FormRecognizerClient) ---
         print("\n--- All Raw IdentityDocument Attributes (for Debugging) ---")
         all_raw_fields_dict = {}
         for attr_name in ['document_number', 'date_of_birth', 'date_of_expiration', 'date_of_issue',
@@ -125,15 +102,15 @@ def extract_id_data(sas_url: str):
         print(all_raw_fields_dict)
         print("--------------------------------------------------")
 
-        return extracted # This will return the dictionary to your Streamlit app
+        return extracted
 
     except requests.exceptions.HTTPError as err:
         print(f"ERROR: HTTP Error during image download: {err}")
+        print(f"DEBUG: Response headers from requests.get (failed download): {response.headers}") # NEW DEBUG LINE
         return {"error": f"Failed to download image from SAS URL: {err}"}
     except Exception as e:
         print(f"ERROR: Azure AI Form Recognizer Error: {e}") 
         return {"error": str(e)}
-
 
 # import os
 # from azure.ai.formrecognizer import DocumentAnalysisClient
