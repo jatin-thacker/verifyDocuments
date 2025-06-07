@@ -34,19 +34,23 @@ st.title("🪪 Smart ID Verification Kiosk")
 uploaded_file = st.file_uploader("📤 Upload your ID image", type=["jpg", "jpeg", "png"])
 debug_mode = st.checkbox("🔍 Enable debug info (raw values & confidence)")
 
+
 if uploaded_file:
     st.write(f"🧾 DEBUG: Streamlit detected file type: `{uploaded_file.type}`")
-    blob_url = None
     try:
         blob_name = uploaded_file.name
         st.write(f"📎 File name: `{blob_name}`")
 
-        # Upload to Azure Blob Storage
+        # ✅ Read the bytes first
+        image_bytes = uploaded_file.read()
+
+        # ✅ Then upload
+        uploaded_file.seek(0)  # rewind for upload
         blob_client = container_client.get_blob_client(blob=blob_name)
         blob_client.upload_blob(uploaded_file, overwrite=True)
         st.success("✅ File uploaded to Azure Blob Storage.")
 
-        # Build SAS URL (in case we ever switch back)
+        # Build SAS URL just for logging
         blob_url = f"{os.getenv('AZURE_BLOB_BASE_URL')}/{blob_name}{sas_token}"
         st.code(f"🔗 SAS URL: {blob_url}", language="text")
 
@@ -54,7 +58,6 @@ if uploaded_file:
         time.sleep(2)
 
         st.write("🔍 Extracting data using Azure Document Intelligence...")
-        image_bytes = uploaded_file.read()
         result = extract_id_data(image_bytes=image_bytes, debug=debug_mode)
 
         if "error" in result:
@@ -70,5 +73,4 @@ if uploaded_file:
 
     except Exception as e:
         st.error(f"❌ Upload or analysis failed: {e}")
-        if not blob_url:
-            st.warning("ℹ️ Blob URL was never created. Upload may have failed.")
+
