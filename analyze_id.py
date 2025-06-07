@@ -6,6 +6,16 @@ from dotenv import load_dotenv
 import requests
 
 load_dotenv()
+def clean_id_data(data: dict) -> dict:
+    return {
+        "FirstName": data.get("FirstName"),
+        "LastName": data.get("LastName"),
+        "DateOfBirth": data.get("DateOfBirth"),
+        "DocumentNumber": data.get("DocumentNumber"),
+        "Address": data.get("Address"),
+        "CountryRegion": data.get("CountryRegion") or "US",
+        "DateOfExpiration": data.get("DateOfExpiration")
+    }
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -54,6 +64,7 @@ def extract_id_data(image_bytes: bytes, debug=False):
             "CountryRegion": fields.get("CountryRegion").content if fields.get("CountryRegion") else None,
             "DateOfExpiration": fields.get("DateOfExpiration").content if fields.get("DateOfExpiration") else None,
         }
+        cleaned_data = clean_id_data(extracted_data)
 
         if debug:
             for key, field in fields.items():
