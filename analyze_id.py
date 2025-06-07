@@ -39,6 +39,7 @@ def extract_id_data(image_bytes: bytes, debug=False):
             logger.warning("No identity documents detected in the image.")
             return {"error": "No identity documents were detected in the image."}
 
+
         doc = result.documents[0]
         fields = doc.fields
         logger.info(f"Document type: {doc.doc_type}")
