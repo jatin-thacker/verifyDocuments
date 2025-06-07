@@ -7,35 +7,33 @@ from analyze_id import extract_id_data  # Make sure this function takes a SAS UR
 
 load_dotenv()
 
-# Load env variables
-container_name = os.getenv("AZURE_BLOB_CONTAINER")
-conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-sas_token = os.getenv("SAS_TOKEN")
 
-# Initialize Azure blob client
-blob_service_client = BlobServiceClient.from_connection_string(conn_str)
-container_client = blob_service_client.get_container_client(container_name)
-
-import os
-import streamlit as st
-
+# Validate environment variables
 required_envs = [
-    "AZURE_FORM_RECOGNIZER_ENDPOINT",
-    "AZURE_FORM_RECOGNIZER_KEY",
     "AZURE_STORAGE_CONNECTION_STRING",
     "AZURE_BLOB_CONTAINER",
     "AZURE_BLOB_BASE_URL",
     "SAS_TOKEN"
 ]
-
 missing = [var for var in required_envs if not os.getenv(var)]
 if missing:
     st.error(f"Missing required environment variables: {', '.join(missing)}")
     st.stop()
-    
+
+# Load env vars
+conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+container_name = os.getenv("AZURE_BLOB_CONTAINER")
+sas_token = os.getenv("SAS_TOKEN")
+
+# Azure Blob setup
+blob_service_client = BlobServiceClient.from_connection_string(conn_str)
+container_client = blob_service_client.get_container_client(container_name)
+
+st.set_page_config(page_title="Smart ID Verification Kiosk", layout="centered")
 st.title("🪪 Smart ID Verification Kiosk")
 
 uploaded_file = st.file_uploader("📤 Upload your ID image", type=["jpg", "jpeg", "png"])
+debug_mode = st.checkbox("🔍 Enable debug info (raw values & confidence)")
 
 if uploaded_file:
     st.write(f"🧾 DEBUG: Streamlit detected file type: `{uploaded_file.type}`")
