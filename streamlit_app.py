@@ -48,7 +48,13 @@ if uploaded_file:
         st.write(f"📎 File name: `{blob_name}`")
 
         blob_client = container_client.get_blob_client(blob=blob_name)
-        blob_client.upload_blob(uploaded_file, overwrite=True)
+        from azure.storage.blob import ContentSettings
+
+        content_type = uploaded_file.type  # Streamlit gives the right type here
+        content_settings = ContentSettings(content_type=content_type)
+
+        blob_client.upload_blob(uploaded_file, overwrite=True, content_settings=content_settings)
+
         st.success("✅ File uploaded to Azure Blob Storage.")
         st.code(f"📦 Container: {container_name}", language="text")
         st.code(f"🔑 SAS Token: {sas_token}", language="text")

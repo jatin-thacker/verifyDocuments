@@ -36,13 +36,18 @@ def extract_id_data(sas_url: str): # REMOVED content_type parameter
         # --- HARDCODING THE CONTENT_TYPE HERE ---
         # Since Streamlit confirms it's JPEG, we'll tell Azure it's JPEG.
         # This bypasses any issues with the passed parameter or its interpretation.
-        fixed_content_type = "image/jpeg" 
-        print(f"DEBUG: Hardcoded Content-Type for analysis: {fixed_content_type}")
+        head_resp = requests.head(sas_url)
+        content_type_from_blob = head_resp.headers.get('Content-Type', 'image/jpeg')  # fallback to jpeg
+
+            
+        st.write("🔍 DEBUG: Fetching image from SAS URL")
+        st.write(f"🧾 Content-Type from Azure Blob: {content_type_from_blob}")
 
         poller = client.begin_recognize_identity_documents(
-            identity_document=image_data, 
-            content_type=fixed_content_type # Using the hardcoded value
+            identity_document=image_data,
+            content_type=content_type_from_blob
         )
+
         result = poller.result()
         
         print(f"DEBUG: AnalyzeResult object receivedsss: {result}")
