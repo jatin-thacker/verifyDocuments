@@ -1,7 +1,8 @@
+import os
 from azure.ai.formrecognizer import FormRecognizerClient
 from azure.core.credentials import AzureKeyCredential
-import os
 from dotenv import load_dotenv
+import streamlit as st  # Optional for testing/debugging
 
 load_dotenv()
 
@@ -9,72 +10,49 @@ endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
 key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
 
 if not endpoint or not key:
-    raise ValueError("AZURE_FORM_RECOGNIZER_ENDPOINT or AZURE_FORM_RECOGNIZER_KEY not set in environment.")
+    raise ValueError("Missing environment variables: AZURE_FORM_RECOGNIZER_ENDPOINT and/or AZURE_FORM_RECOGNIZER_KEY")
 
-client = FormRecognizerClient(
-    endpoint=endpoint,
-    credential=AzureKeyCredential(key)
-)
+client = FormRecognizerClient(endpoint=endpoint, credential=AzureKeyCredential(key))
 
-def extract_id_data(image_bytes: bytes, content_type: str):
-    print("DEBUG: extract_id_data called with image_bytes and content_type:", content_type)
-    
+
+def extract_id_data(image_bytes: bytes, content_type: str) -> dict:
+    print("🧠 DEBUG: Starting Azure Form Recognizer with bytes input...")
+    extracted = {}
+
     try:
-        print("DEBUG: Starting Azure Document Intelligence analysis...")
         poller = client.begin_recognize_identity_documents(
             identity_document=image_bytes,
             content_type=content_type
         )
         result = poller.result()
 
-        if not result or len(result) == 0:
-            print("DEBUG: No documents returned by recognizer.")
-            return {"error": "No documents returned by Azure Form Recognizer."}
+        if not result:
+            return {"error": "No identity documents were detected in the image."}
 
-        id_document = result[0]
-        print(f"DEBUG: Document Type Detected: {id_document.doc_type}")
+        doc = result[0]
 
-        # Extract core fields
         extracted = {
-            "FirstName": id_document.first_name.content if id_document.first_name else None,
-            "LastName": id_document.last_name.content if id_document.last_name else None,
-            "FullName": id_document.full_name.content if id_document.full_name else None,
-            "DocumentNumber": id_document.document_number.content if id_document.document_number else None,
-            "DateOfBirth": id_document.date_of_birth.content if id_document.date_of_birth else None,
-            "IssueDate": id_document.date_of_issue.content if id_document.date_of_issue else None,
-            "ExpirationDate": id_document.date_of_expiration.content if id_document.date_of_expiration else None,
-            "Sex": id_document.sex.content if id_document.sex else None,
-            "Address": id_document.address.content if id_document.address else None,
-            "City": id_document.city.content if id_document.city else None,
-            "Province": id_document.state.content if id_document.state else None,
-            "PostalCode": id_document.postal_code.content if id_document.postal_code else None,
-            "Country": id_document.country_region.content if id_document.country_region else None,
+            "FirstName": doc.first_name.content if doc.first_name else None,
+            "LastName": doc.last_name.content if doc.last_name else None,
+            "FullName": doc.full_name.content if doc.full_name else None,
+            "DocumentNumber": doc.document_number.content if doc.document_number else None,
+            "DateOfBirth": doc.date_of_birth.content if doc.date_of_birth else None,
+            "ExpirationDate": doc.date_of_expiration.content if doc.date_of_expiration else None,
+            "IssueDate": doc.date_of_issue.content if doc.date_of_issue else None,
+            "Address": doc.address.content if doc.address else None,
+            "City": doc.city.content if doc.city else None,
+            "Province": doc.state.content if doc.state else None,
+            "PostalCode": doc.postal_code.content if doc.postal_code else None,
+            "Country": doc.country_region.content if doc.country_region else None,
+            "Sex": doc.sex.content if doc.sex else None,
         }
-
-        print("DEBUG: Extracted Key Fields:")
-        for k, v in extracted.items():
-            print(f"  {k}: {v}")
-
-        # Optional: print all fields with confidence for debugging
-        print("\nDEBUG: Raw Fields with Confidence:")
-        raw_fields = {}
-        for field_name in [
-            "first_name", "last_name", "full_name", "document_number", "date_of_birth", "date_of_issue",
-            "date_of_expiration", "sex", "address", "city", "state", "postal_code", "country_region"
-        ]:
-            field = getattr(id_document, field_name, None)
-            if field:
-                raw_fields[field_name] = {
-                    "value": field.content if hasattr(field, "content") else str(field.value),
-                    "confidence": round(field.confidence, 2) if hasattr(field, "confidence") else "N/A"
-                }
-        print(raw_fields)
 
         return extracted
 
     except Exception as e:
-        print(f"ERROR: Exception during Form Recognizer call: {e}")
+        print(f"❌ ERROR during ID extraction: {e}")
         return {"error": str(e)}
+
 
 
 # import os

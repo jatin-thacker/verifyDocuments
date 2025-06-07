@@ -1,23 +1,12 @@
 import streamlit as st
 import os
 import time
-from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
-from analyze_id import extract_id_data  # Make sure this function takes a SAS URL
+from azure.storage.blob import BlobServiceClient
+from analyze_id import extract_id_data  # Make sure this uses bytes, not URL
 
+# Load environment variables
 load_dotenv()
-
-# Load env variables
-container_name = os.getenv("AZURE_BLOB_CONTAINER")
-conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-sas_token = os.getenv("SAS_TOKEN")
-
-# Initialize Azure blob client
-blob_service_client = BlobServiceClient.from_connection_string(conn_str)
-container_client = blob_service_client.get_container_client(container_name)
-
-import os
-import streamlit as st
 
 required_envs = [
     "AZURE_FORM_RECOGNIZER_ENDPOINT",
@@ -30,55 +19,54 @@ required_envs = [
 
 missing = [var for var in required_envs if not os.getenv(var)]
 if missing:
-    st.error(f"Missing required environment variables: {', '.join(missing)}")
+    st.error(f"❌ Missing environment variables: {', '.join(missing)}")
     st.stop()
-    
-st.title("🪪 Smart ID Verification Kiosk")
 
+# Extract config
+conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+container_name = os.getenv("AZURE_BLOB_CONTAINER")
+base_url = os.getenv("AZURE_BLOB_BASE_URL")
+sas_token = os.getenv("SAS_TOKEN")
+
+# Azure blob setup
+blob_service_client = BlobServiceClient.from_connection_string(conn_str)
+container_client = blob_service_client.get_container_client(container_name)
+
+# Title
+st.title("🪪 Smart ID Verification Kiosk")
 uploaded_file = st.file_uploader("📤 Upload your ID image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
-    # --- CRUCIAL DEBUG LINE: See what Streamlit detects as the file type ---
-    st.write(f"DEBUG: Streamlit detected file type: `{uploaded_file.type}`") 
-    # --- END DEBUG LINE ---
-    blob_url = None  # Initialize to avoid undefined reference
+    content_type = uploaded_file.type
+    st.write(f"🧾 DEBUG: Streamlit detected file type: `{content_type}`")
+    
+    image_bytes = uploaded_file.getvalue()
+    blob_name = uploaded_file.name
+
     try:
-        # Define blob name and upload to Azure
-        blob_name = uploaded_file.name
         st.write(f"📎 File name: `{blob_name}`")
 
+        # Upload to blob
         blob_client = container_client.get_blob_client(blob=blob_name)
-        from azure.storage.blob import ContentSettings
-
-        content_type = uploaded_file.type  # Streamlit gives the right type here
-        content_settings = ContentSettings(content_type=content_type)
-
-        blob_client.upload_blob(uploaded_file, overwrite=True, content_settings=content_settings)
+        blob_client.upload_blob(image_bytes, overwrite=True)
 
         st.success("✅ File uploaded to Azure Blob Storage.")
-        st.code(f"📦 Container: {container_name}", language="text")
-        st.code(f"🔑 SAS Token: {sas_token}", language="text")
-
-        # Give Azure some time to register the new blob (Azure can be slow to propagate)
-        st.info("⏳ Waiting for blob availability...")
-        time.sleep(5)
-        # Build SAS URL
-        blob_url = f"{os.getenv('AZURE_BLOB_BASE_URL')}/{blob_name}{sas_token}"
+        blob_url = f"{base_url}/{blob_name}{sas_token}"
         st.code(f"🔗 SAS URL: {blob_url}", language="text")
 
-        st.write("🔍 Extracting data using Azure Document Intelligence...")
+        # Wait a bit to let Azure index the blob
+        st.info("⏳ Waiting briefly for Azure blob readiness...")
+        time.sleep(2)
 
-        image_bytes = uploaded_file.getvalue()
-        result = extract_id_data(image_bytes=image_bytes, content_type=uploaded_file.type)
-        # 👈 use the real uploaded file's URL
+        # Extract data
+        with st.spinner("🔍 Extracting ID data using Azure AI..."):
+            result = extract_id_data(image_bytes=image_bytes, content_type=content_type)
 
         if "error" in result:
-            st.error(f"❌ Azure Form Recognizer Error: {result['error']}")
+            st.error(f"❌ Azure Form Recognizer Error:\n\n{result['error']}")
         else:
-            st.success("✅ ID Verified Successfully!!!")
+            st.success("✅ ID Verified Successfully!")
             st.json(result)
 
     except Exception as e:
-        st.error(f"❌ Upload failed: {e}")
-        if not blob_url:
-            st.warning("ℹ️ Blob URL was never created. Upload may have failed...")
+        st.error(f"❌ An error occurred: {e}")
