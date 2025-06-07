@@ -36,11 +36,11 @@ if uploaded_file:
                 "CountryRegion": fields.get("CountryRegion").value if fields.get("CountryRegion") else "US",
             }
 
-            customer_id = str(uuid.uuid4())
-            insert_customer_data(customer_id, data)
+            #customer_id = str(uuid.uuid4())
+            #insert_customer_data(customer_id, data)
 
             st.success("✅ ID Processed Successfully")
-            st.json({**{"CustomerID": customer_id}, **data})
+            #st.json({**{"CustomerID": customer_id}, **data})
 
         except Exception as e:
             st.error(f"❌ Failed to process: {str(e)}")
