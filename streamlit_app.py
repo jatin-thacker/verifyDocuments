@@ -1,46 +1,75 @@
-import streamlit as st
-from azure.ai.formrecognizer import DocumentAnalysisClient
-from azure.core.credentials import AzureKeyCredential
-from database import insert_customer_data
-from PIL import Image
-import io
-import uuid
 import os
+import time
+import streamlit as st
+from azure.storage.blob import BlobServiceClient
+from dotenv import load_dotenv
+from analyze_id import extract_id_data
 
-endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
-key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
-client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(key))
+load_dotenv()
 
-st.title("🪪 Smart ID Kiosk - US ID Only")
+# Validate environment variables
+required_envs = [
+    "AZURE_STORAGE_CONNECTION_STRING",
+    "AZURE_BLOB_CONTAINER",
+    "AZURE_BLOB_BASE_URL",
+    "SAS_TOKEN"
+]
+missing = [var for var in required_envs if not os.getenv(var)]
+if missing:
+    st.error(f"Missing required environment variables: {', '.join(missing)}")
+    st.stop()
 
-uploaded_file = st.file_uploader("Upload your ID", type=["jpg", "jpeg", "png"])
+# Load env vars
+conn_str = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+container_name = os.getenv("AZURE_BLOB_CONTAINER")
+sas_token = os.getenv("SAS_TOKEN")
+
+# Azure Blob setup
+blob_service_client = BlobServiceClient.from_connection_string(conn_str)
+container_client = blob_service_client.get_container_client(container_name)
+
+st.set_page_config(page_title="Smart ID Verification Kiosk", layout="centered")
+st.title("🪪 Smart ID Verification Kiosk")
+
+uploaded_file = st.file_uploader("📤 Upload your ID image", type=["jpg", "jpeg", "png"])
+debug_mode = st.checkbox("🔍 Enable debug info (raw values & confidence)")
+
 
 if uploaded_file:
-    image = Image.open(uploaded_file)
-    image_bytes = uploaded_file.read()
+    st.write(f"🧾 DEBUG: Streamlit detected file type: `{uploaded_file.type}`")
+    try:
+        blob_name = uploaded_file.name
+        st.write(f"📎 File name: `{blob_name}`")
 
-    with st.spinner("Analyzing ID..."):
-        try:
-            poller = client.begin_analyze_document("prebuilt-idDocument", document=image_bytes)
-            result = poller.result()
+        # ✅ Read the bytes first
+        image_bytes = uploaded_file.read()
 
-            fields = result.documents[0].fields
+        # ✅ Then upload
+        uploaded_file.seek(0)  # rewind for upload
+        blob_client = container_client.get_blob_client(blob=blob_name)
+        blob_client.upload_blob(uploaded_file, overwrite=True)
+        st.success("✅ File uploaded to Azure Blob Storage.")
 
-            data = {
-                "FirstName": fields.get("FirstName").value if fields.get("FirstName") else None,
-                "LastName": fields.get("LastName").value if fields.get("LastName") else None,
-                "DateOfBirth": fields.get("DateOfBirth").value if fields.get("DateOfBirth") else None,
-                "DocumentNumber": fields.get("DocumentNumber").value if fields.get("DocumentNumber") else None,
-                "Address": fields.get("Address").value if fields.get("Address") else None,
-                "DateOfExpiration": fields.get("DateOfExpiration").value if fields.get("DateOfExpiration") else None,
-                "CountryRegion": fields.get("CountryRegion").value if fields.get("CountryRegion") else "US",
-            }
+        # Build SAS URL just for logging
+        blob_url = f"{os.getenv('AZURE_BLOB_BASE_URL')}/{blob_name}{sas_token}"
+        st.code(f"🔗 SAS URL: {blob_url}", language="text")
 
-            #customer_id = str(uuid.uuid4())
-            #insert_customer_data(customer_id, data)
+        st.info("⏳ Waiting briefly for Azure blob readiness...")
+        time.sleep(2)
 
-            st.success("✅ ID Processed Successfully")
-            #st.json({**{"CustomerID": customer_id}, **data})
+        st.write("🔍 Extracting data using Azure Document Intelligence...")
+        result = extract_id_data(image_bytes=image_bytes, debug=debug_mode)
 
-        except Exception as e:
-            st.error(f"❌ Failed to process: {str(e)}")
+        if "error" in result:
+            st.error(f"❌ Azure Form Recognizer Error:\n\n{result['error']}")
+        else:
+            st.success("✅ ID Verified Successfully!")
+            st.subheader("📋 Extracted Data")
+            st.json(result["extracted"])
+
+            if debug_mode and result.get("raw_debug"):
+                st.subheader("🔧 Debug Info")
+                st.json(result["raw_debug"])
+
+    except Exception as e:
+        st.error(f"❌ Upload or analysis failed: {e}")
