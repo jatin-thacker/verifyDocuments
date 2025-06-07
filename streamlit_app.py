@@ -5,6 +5,7 @@ from azure.storage.blob import BlobServiceClient
 from dotenv import load_dotenv
 from analyze_id import extract_id_data  # Make sure this function takes a SAS URL
 from db_utils import insert_customer_data
+from db_utils import get_connection
 
 load_dotenv()
 
