@@ -51,3 +51,4 @@ azure-core==1.29.5
 azure-identity
 pillow
 pyodbc
+pandas
