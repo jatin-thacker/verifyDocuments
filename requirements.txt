@@ -2,7 +2,6 @@ streamlit
 azure-common
 azure-storage-blob
 requests
-azure-ai-formrecognizer==3.3.3
 azure-core
 python-dotenv
 pandas
