@@ -4,8 +4,7 @@ from azure.core.credentials import AzureKeyCredential
 from dotenv import load_dotenv
 import requests 
 
-# Keep this line if you plan to test analyze_id.py standalone, otherwise remove
-# import streamlit as st 
+import streamlit as st # Keep this if analyze_id.py needs to be able to be run standalone for testing
 
 load_dotenv()
 
@@ -21,9 +20,9 @@ client = FormRecognizerClient(
             credential=AzureKeyCredential(key)
         )
 
-# MODIFIED: content_type is directly passed and we will trust it completely
-def extract_id_data(sas_url: str, content_type: str): 
-    print(f"DEBUG: extract_id_data called with SAS URL: {sas_url}, PASSED Content-Type: {content_type}")
+# MODIFIED: No longer need content_type as a parameter, we will hardcode it.
+def extract_id_data(sas_url: str): # REMOVED content_type parameter
+    print(f"DEBUG: extract_id_data called with SAS URL: {sas_url}")
     print("DEBUG: Starting document analysis with FormRecognizerClient...")
     
     extracted = {}
@@ -34,18 +33,19 @@ def extract_id_data(sas_url: str, content_type: str):
         
         image_data = response.content 
         
-        # --- CRITICAL: We are now explicitly trusting the `content_type`
-        # --- that was passed directly from streamlit_app.py.
-        # --- All previous inference/fallback logic for content_type is REMOVED.
-        print(f"DEBUG: Using FINAL Content-Type for analysis: {content_type}") 
+        # --- HARDCODING THE CONTENT_TYPE HERE ---
+        # Since Streamlit confirms it's JPEG, we'll tell Azure it's JPEG.
+        # This bypasses any issues with the passed parameter or its interpretation.
+        fixed_content_type = "image/jpeg" 
+        print(f"DEBUG: Hardcoded Content-Type for analysis: {fixed_content_type}")
 
         poller = client.begin_recognize_identity_documents(
             identity_document=image_data, 
-            content_type=content_type # Directly use the passed content_type
+            content_type=fixed_content_type # Using the hardcoded value
         )
         result = poller.result()
         
-        print(f"DEBUG: AnalyzeResult object received: {result}")
+        print(f"DEBUG: AnalyzeResult object receivedsss: {result}")
 
         if not result: 
             print("DEBUG: No identity documents found in the image or no results returned from Azure.")
@@ -106,7 +106,6 @@ def extract_id_data(sas_url: str, content_type: str):
 
     except requests.exceptions.HTTPError as err:
         print(f"ERROR: HTTP Error during image download: {err}")
-        print(f"DEBUG: Response headers from requests.get (failed download): {response.headers}") # NEW DEBUG LINE
         return {"error": f"Failed to download image from SAS URL: {err}"}
     except Exception as e:
         print(f"ERROR: Azure AI Form Recognizer Error: {e}") 
