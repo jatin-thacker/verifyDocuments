@@ -1,56 +1,73 @@
 import os
-from azure.ai.formrecognizer import FormRecognizerClient
+import logging
+from azure.ai.formrecognizer import DocumentAnalysisClient
 from azure.core.credentials import AzureKeyCredential
 from dotenv import load_dotenv
-import streamlit as st  # Optional for testing/debugging
+import requests
 
 load_dotenv()
 
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("SmartIDLogger")
+
+# Load credentials
 endpoint = os.getenv("AZURE_FORM_RECOGNIZER_ENDPOINT")
 key = os.getenv("AZURE_FORM_RECOGNIZER_KEY")
 
 if not endpoint or not key:
-    raise ValueError("Missing environment variables: AZURE_FORM_RECOGNIZER_ENDPOINT and/or AZURE_FORM_RECOGNIZER_KEY")
+    raise ValueError("Environment variables AZURE_FORM_RECOGNIZER_ENDPOINT and AZURE_FORM_RECOGNIZER_KEY must be set.")
 
-client = FormRecognizerClient(endpoint=endpoint, credential=AzureKeyCredential(key))
+client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(key))
 
 
-def extract_id_data(image_bytes: bytes, content_type: str) -> dict:
-    print("🧠 DEBUG: Starting Azure Form Recognizer with bytes input...")
+def extract_id_data(image_bytes: bytes, debug=False):
+    logger.info("Starting extract_id_data with image bytes.")
     extracted = {}
+    raw_fields = {}
 
     try:
-        poller = client.begin_recognize_identity_documents(
-            identity_document=image_bytes,
-            content_type=content_type
+        logger.debug(f"Sending bytes to Form Recognizer...")
+        poller = client.begin_analyze_document(
+            model_id="prebuilt-idDocument",
+            document=image_bytes
         )
         result = poller.result()
+        logger.info("Received response from Azure Form Recognizer.")
 
-        if not result:
+        if not result.documents:
+            logger.warning("No identity documents detected in the image.")
             return {"error": "No identity documents were detected in the image."}
 
-        doc = result[0]
+        doc = result.documents[0]
+        fields = doc.fields
+        logger.info(f"Document type: {doc.doc_type}")
 
+        # Extract specific fields
         extracted = {
-            "FirstName": doc.first_name.content if doc.first_name else None,
-            "LastName": doc.last_name.content if doc.last_name else None,
-            "FullName": doc.full_name.content if doc.full_name else None,
-            "DocumentNumber": doc.document_number.content if doc.document_number else None,
-            "DateOfBirth": doc.date_of_birth.content if doc.date_of_birth else None,
-            "ExpirationDate": doc.date_of_expiration.content if doc.date_of_expiration else None,
-            "IssueDate": doc.date_of_issue.content if doc.date_of_issue else None,
-            "Address": doc.address.content if doc.address else None,
-            "City": doc.city.content if doc.city else None,
-            "Province": doc.state.content if doc.state else None,
-            "PostalCode": doc.postal_code.content if doc.postal_code else None,
-            "Country": doc.country_region.content if doc.country_region else None,
-            "Sex": doc.sex.content if doc.sex else None,
+            "FirstName": fields.get("FirstName").content if fields.get("FirstName") else None,
+            "LastName": fields.get("LastName").content if fields.get("LastName") else None,
+            "FullName": fields.get("FullName").content if fields.get("FullName") else None,
+            "DateOfBirth": fields.get("DateOfBirth").content if fields.get("DateOfBirth") else None,
+            "DocumentNumber": fields.get("DocumentNumber").content if fields.get("DocumentNumber") else None,
+            "Address": fields.get("Address").content if fields.get("Address") else None,
+            "CountryRegion": fields.get("CountryRegion").content if fields.get("CountryRegion") else None,
+            "DateOfExpiration": fields.get("DateOfExpiration").content if fields.get("DateOfExpiration") else None,
         }
 
-        return extracted
+        if debug:
+            for key, field in fields.items():
+                if field:
+                    raw_fields[key] = {
+                        "content": getattr(field, "content", None),
+                        "value": getattr(field, "value", None),
+                        "confidence": f"{getattr(field, 'confidence', 'N/A'):.2f}" if isinstance(getattr(field, 'confidence', None), float) else "N/A"
+                    }
+
+        return {"extracted": extracted, "raw_debug": raw_fields if debug else None}
 
     except Exception as e:
-        print(f"❌ ERROR during ID extraction: {e}")
+        logger.exception("Error in extract_id_data.")
         return {"error": str(e)}
 
 
