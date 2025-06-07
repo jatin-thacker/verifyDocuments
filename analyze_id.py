@@ -28,10 +28,15 @@ def extract_id_data(image_bytes: bytes, debug=False):
 
     try:
         logger.debug(f"Sending bytes to Form Recognizer...")
-        poller = client.begin_analyze_document(
-            model_id="prebuilt-idDocument",
-            document=image_bytes
-        )
+        ##poller = client.begin_analyze_document(
+        ##    model_id="prebuilt-idDocument",
+        ##    document=image_bytes
+        ##)
+        with open("test_id.jpg", "wb") as f:
+            f.write(image_bytes)
+        with open("test_id.jpg", "rb") as f:
+            poller = client.begin_analyze_document("prebuilt-idDocument", document=f)
+
         result = poller.result()
         logger.info("Received response from Azure Form Recognizer.")
 
@@ -41,7 +46,21 @@ def extract_id_data(image_bytes: bytes, debug=False):
 
         doc = result.documents[0]
         fields = doc.fields
+
+        ##Debug
         logger.info(f"Document type: {doc.doc_type}")
+        print(result.to_dict())
+        
+        ##Debug
+        logger.info(json.dumps(result.to_dict(), indent=2))
+
+
+        ##Debug 
+        if result.fields:
+            for field_name, field in result.fields.items():
+                print(f"{field_name}: {field.value} (confidence: {field.confidence})")
+        else:
+            print("No fields found")
 
         # Extract specific fields
         extracted = {
