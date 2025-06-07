@@ -12,13 +12,29 @@ database = os.getenv("AZURE_SQL_DATABASE")
 username = os.getenv("AZURE_SQL_USERNAME")
 password = os.getenv("AZURE_SQL_PASSWORD")
 
-def get_connection():
-    conn_str = (
-        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-        f"SERVER={server};DATABASE={database};UID={username};PWD={password};"
-        f"Encrypt=yes;TrustServerCertificate=no;Connection Timeout=60;"
-    )
-    return pyodbc.connect(conn_str)
+import pyodbc
+import time
+
+def get_connection(retries=3, delay=5):
+    for attempt in range(retries):
+        try:
+            conn = pyodbc.connect(
+                f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+                f"SERVER={os.getenv('SQL_SERVER')};"
+                f"DATABASE={os.getenv('SQL_DATABASE')};"
+                f"UID={os.getenv('SQL_USERNAME')};"
+                f"PWD={os.getenv('SQL_PASSWORD')};"
+                "Encrypt=yes;"
+                "TrustServerCertificate=yes;"
+                "Connection Timeout=30;"
+            )
+            return conn
+        except Exception as e:
+            if attempt < retries - 1:
+                time.sleep(delay)
+            else:
+                raise e
+
 
 def insert_customer_data(data: dict):
     customer_id = str(uuid.uuid4())

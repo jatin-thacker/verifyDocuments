@@ -33,6 +33,15 @@ container_client = blob_service_client.get_container_client(container_name)
 st.set_page_config(page_title="Smart ID Verification Kiosk", layout="centered")
 st.title("🪪 Smart ID Verification Kiosk")
 
+if st.button("🔌 Test DB Connection"):
+    try:
+        conn = get_connection()
+        st.success("✅ Connected to DB successfully!")
+        conn.close()
+    except Exception as e:
+        st.error(f"❌ DB Connection Failed: {e}")
+
+
 uploaded_file = st.file_uploader("📤 Upload your ID image", type=["jpg", "jpeg", "png"])
 debug_mode = st.checkbox("🔍 Enable debug info (raw values & confidence)")
 
