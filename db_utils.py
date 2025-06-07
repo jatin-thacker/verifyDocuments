@@ -40,5 +40,6 @@ def insert_customer_data(data: dict):
         data.get("DateOfExpiration"),
     ))
     conn.commit()
+    cursor.close()
     conn.close()
     return customer_id
