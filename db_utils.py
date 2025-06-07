@@ -16,20 +16,27 @@ import pyodbc
 import time
 
 def get_connection(retries=3, delay=5):
+    server = os.getenv("AZURE_SQL_SERVER")
+    database = os.getenv("AZURE_SQL_DATABASE")
+    username = os.getenv("AZURE_SQL_USERNAME")
+    password = os.getenv("AZURE_SQL_PASSWORD")
+    print(f"[DEBUG] Values are: server is  {server} , database is : {database}, username is : {username}, and the password is {password}.")
     for attempt in range(retries):
         try:
             conn = pyodbc.connect(
                 f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-                f"SERVER={os.getenv('SQL_SERVER')};"
-                f"DATABASE={os.getenv('SQL_DATABASE')};"
-                f"UID={os.getenv('SQL_USERNAME')};"
-                f"PWD={os.getenv('SQL_PASSWORD')};"
+                f"SERVER={server};"
+                f"DATABASE={database};"
+                f"UID={username};"
+                f"PWD={password};"
                 "Encrypt=yes;"
                 "TrustServerCertificate=yes;"
                 "Connection Timeout=30;"
             )
+            print("[DEBUG] Connection succeeded")
             return conn
         except Exception as e:
+            print(f"[DEBUG] Connection attempt {attempt + 1} failed: {e}")
             if attempt < retries - 1:
                 time.sleep(delay)
             else:
