@@ -46,3 +46,7 @@ jsonschema-specifications
 rpds-py
 attrs
 oauthlib
+streamlit==1.34.0
+azure-ai-formrecognizer==3.3.2
+azure-core==1.29.5
+azure-identity
