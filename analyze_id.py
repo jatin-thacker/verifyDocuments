@@ -66,6 +66,7 @@ def extract_id_data(image_bytes: bytes, debug=False):
         }
         cleaned_data = clean_id_data(extracted_data)
 
+        
         if debug:
             for key, field in fields.items():
                 if field:
