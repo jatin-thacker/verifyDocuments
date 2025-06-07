@@ -38,47 +38,40 @@ st.title("🪪 Smart ID Verification Kiosk")
 uploaded_file = st.file_uploader("📤 Upload your ID image", type=["jpg", "jpeg", "png"])
 
 if uploaded_file:
-    # --- CRUCIAL DEBUG LINE: See what Streamlit detects as the file type ---
-    st.write(f"DEBUG: Streamlit detected file type: `{uploaded_file.type}`") 
-    # --- END DEBUG LINE ---
-    blob_url = None  # Initialize to avoid undefined reference
+    st.write(f"🧾 DEBUG: Streamlit detected file type: `{uploaded_file.type}`")
     try:
-        # Define blob name and upload to Azure
         blob_name = uploaded_file.name
         st.write(f"📎 File name: `{blob_name}`")
 
+        # ✅ Read the bytes first
+        image_bytes = uploaded_file.read()
+
+        # ✅ Then upload
+        uploaded_file.seek(0)  # rewind for upload
         blob_client = container_client.get_blob_client(blob=blob_name)
-        from azure.storage.blob import ContentSettings
-
-        content_type = uploaded_file.type  # Streamlit gives the right type here
-        content_settings = ContentSettings(content_type=content_type)
-
-        blob_client.upload_blob(uploaded_file, overwrite=True, content_settings=content_settings)
-
+        blob_client.upload_blob(uploaded_file, overwrite=True)
         st.success("✅ File uploaded to Azure Blob Storage.")
-        st.code(f"📦 Container: {container_name}", language="text")
-        st.code(f"🔑 SAS Token: {sas_token}", language="text")
 
-        # Give Azure some time to register the new blob (Azure can be slow to propagate)
-        st.info("⏳ Waiting for blob availability...")
-        time.sleep(5)
-        # Build SAS URL
+        # Build SAS URL just for logging
         blob_url = f"{os.getenv('AZURE_BLOB_BASE_URL')}/{blob_name}{sas_token}"
         st.code(f"🔗 SAS URL: {blob_url}", language="text")
 
-        st.write("🔍 Extracting data using Azure Document Intelligence...")
+        st.info("⏳ Waiting briefly for Azure blob readiness...")
+        time.sleep(2)
 
-        image_bytes = uploaded_file.getvalue()
-        result = extract_id_data(image_bytes=image_bytes, content_type=uploaded_file.type)
-        # 👈 use the real uploaded file's URL
+        st.write("🔍 Extracting data using Azure Document Intelligence...")
+        result = extract_id_data(image_bytes=image_bytes, debug=debug_mode)
 
         if "error" in result:
-            st.error(f"❌ Azure Form Recognizer Error: {result['error']}")
+            st.error(f"❌ Azure Form Recognizer Error:\n\n{result['error']}")
         else:
-            st.success("✅ ID Verified Successfully!!!")
-            st.json(result)
+            st.success("✅ ID Verified Successfully!")
+            st.subheader("📋 Extracted Data")
+            st.json(result["extracted"])
+
+            if debug_mode and result.get("raw_debug"):
+                st.subheader("🔧 Debug Info")
+                st.json(result["raw_debug"])
 
     except Exception as e:
-        st.error(f"❌ Upload failed: {e}")
-        if not blob_url:
-            st.warning("ℹ️ Blob URL was never created. Upload may have failed...")
+        st.error(f"❌ Upload or analysis failed: {e}")
